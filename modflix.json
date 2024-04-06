@@ -1,0 +1,18 @@
+{
+  Moviesmod: {
+    name: "Moviesmod",
+    url: "https://moviesmod.lol",
+  },
+  Animeflix: {
+    name: "Animeflix",
+    url: "https://animeflix.lol",
+  },
+  Topmovies: {
+    name: "Topmovies",
+    url: "https://topmovies.day",
+  },
+  UhdMovies: {
+    name: "UhdMovies",
+    url: "https://uhdmovies.eu",
+  },
+};
