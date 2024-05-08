@@ -14,5 +14,9 @@
   "UhdMovies": {
     "name": "UhdMovies",
     "url": "https://uhdmovies.eu"
+  },
+  "Vega": {
+    "name": "vegamovies",
+    "url": "https://vegamovies.yt"
   }
 }
