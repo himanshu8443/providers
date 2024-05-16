@@ -18,5 +18,9 @@
   "Vega": {
     "name": "vegamovies",
     "url": "https://vegamovies.yt"
+  },
+  "lux": {
+    "name":"luxmovies",
+    "url":"https://luxmovies.lat"
   }
 }
