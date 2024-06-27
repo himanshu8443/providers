@@ -34,5 +34,9 @@
    "multi":{
    "name":"multimovies",
     "url":"https://multimovies.icu"
+  },
+   "w4u":{
+   "name":"world4ufree",
+    "url":"https://world4ufree.wales"
   }
 }
