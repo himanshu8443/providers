@@ -38,5 +38,9 @@
    "w4u":{
    "name":"world4ufree",
     "url":"https://world4ufree.wales"
+  },
+  "extra":{
+   "name":"extraMovies",
+    "url":"https://extramovies.ist"
   }
 }
