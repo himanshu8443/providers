@@ -42,5 +42,9 @@
   "extra":{
    "name":"extraMovies",
     "url":"https://extramovies.ist"
+  },
+  "hdhub":{
+    "name":"hdhub4u",
+    "url":"https://hdhub4u.boston"
   }
 }
