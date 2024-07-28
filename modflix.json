@@ -46,5 +46,9 @@
   "hdhub":{
     "name":"hdhub4u",
     "url":"https://hdhub4u.boston"
+  },
+  "kat":{
+    "mame": "katmovieshd",
+    "url":"https://katmoviehd.foo"
   }
 }
