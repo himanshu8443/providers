@@ -58,5 +58,17 @@
   "dooflix":{
     "name":"dooflix",
     "url":"https://dooflixpanel.com"
+  },
+   "autoEmbed":{
+    "name":"autoEmbed",
+    "url":"https://autoembed.cc"
+  },
+  "aed":{
+    "name":"autoEmbedDrama",
+    "url":"https://watch-drama.autoembed.cc"
+  },
+    "aea":{
+    "name":"autoEmbedAnime",
+    "url":"https://watch-anime.autoembed.cc"
   }
 }
