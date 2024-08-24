@@ -1,7 +1,7 @@
 {
   "Moviesmod": {
     "name": "Moviesmod",
-    "url": "https://moviesmod.lol"
+    "url": "https://moviesmod.win"
   },
   "Animeflix": {
     "name": "Animeflix",
@@ -13,7 +13,7 @@
   },
   "UhdMovies": {
     "name": "UhdMovies",
-    "url": "https://uhdmovies.eu"
+    "url": "https://uhdmovies.dad"
   },
   "filepress": {
     "name": "filepress",
@@ -70,5 +70,21 @@
     "aea":{
     "name":"autoEmbedAnime",
     "url":"https://watch-anime.autoembed.cc"
-  }
+  },
+  "tokyoinsider":{
+    "name":"tokyoinsider",
+    "url":"https://www.tokyoinsider.com"
+  },
+  "consumet":{
+    "name":"consumet",
+    "url":"https://consumet8.vercel.app"
+  },
+  "nfMirror":{
+    "name":"nfMirror",
+    "url":"https://iosmirror.cc"
+  },
+  "primewire":{
+    "name":"primewire",
+    "url":"https://www.primewire.tf"
+  },
 }
