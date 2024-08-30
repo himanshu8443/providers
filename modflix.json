@@ -90,5 +90,9 @@
   "rive":{
     "name":"rive",
     "url":"https://rivestream.live"
+  },
+    "kissKh":{
+    "name":"kissKh",
+    "url":"https://kisskh.co"
   }
 }
