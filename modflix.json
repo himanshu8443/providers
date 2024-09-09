@@ -98,5 +98,9 @@
   "vadapav":{
     "name":"vadapav",
     "url":"https://vadapav.mov"
+  },
+  "cinemaLuxe":{
+    "name":"cinemaLuxe",
+    "url":"https://cinemaluxe.link"
   }
 }
