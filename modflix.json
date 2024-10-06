@@ -102,5 +102,9 @@
   "cinemaLuxe":{
     "name":"cinemaLuxe",
     "url":"https://cinemaluxe.click"
+  },
+   "showbox":{
+    "name":"showbox",
+    "url":"https://www.showbox.media"
   }
 }
