@@ -110,5 +110,9 @@
     "animerulz":{
     "name":"animerulz",
     "url":"https://animerulz.co"
+  },
+   "moviesapi":{
+    "name":"moviesapi",
+    "url":"https://moviesapi.club"
   }
 }
