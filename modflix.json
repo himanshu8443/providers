@@ -114,5 +114,9 @@
    "moviesapi":{
     "name":"moviesapi",
     "url":"https://moviesapi.club"
+  },
+  "ridomovies":{
+    "name":"ridomovies",
+    "url": "https://ridomovies.tv"
   }
 }
