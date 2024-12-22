@@ -118,5 +118,9 @@
   "ridomovies":{
     "name":"ridomovies",
     "url": "https://ridomovies.tv"
+  },
+  "protonMovies":{
+    "name":"protonMovies",
+    "url":"https://protonmovies.xyz"
   }
 }
