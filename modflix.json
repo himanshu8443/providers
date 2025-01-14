@@ -122,5 +122,9 @@
   "protonMovies":{
     "name":"protonMovies",
     "url":"https://protonmovies.xyz"
+  },
+  "dramafull":{
+    "name":"dramafull",
+    "url":"https://dramafull.net"
   }
 }
