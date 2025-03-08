@@ -9,7 +9,7 @@
   },
   "Topmovies": {
     "name": "Topmovies",
-    "url": "https://topmovies.fyi"
+    "url": "https://topmovies.nexus"
   },
   "UhdMovies": {
     "name": "UhdMovies",
@@ -25,11 +25,11 @@
   },
   "lux": {
     "name":"luxmovies",
-    "url":"https://rogmovies.cfd"
+    "url":"https://rogmovies.icu"
   },
   "drive":{
    "name":"moviesDrive",
-    "url":"https://moviesdrive.pro/"
+    "url":"https://moviesdrive.club/"
   },
    "multi":{
    "name":"multimovies",
@@ -45,11 +45,11 @@
   },
   "hdhub":{
     "name":"hdhub4u",
-    "url":"https://hdhub4u.soy"
+    "url":"https://hdhub4u.supply"
   },
   "kat":{
     "name": "katmovieshd",
-    "url":"https://katmoviehd.wales"
+    "url":"https://katmoviehd.rodeo"
   },
   "dc":{
     "name":"dramacool",
@@ -121,7 +121,7 @@
   },
   "protonMovies":{
     "name":"protonMovies",
-    "url":"https://m.protonmovies.top"
+    "url":"https://m2.protonmovies.top"
   },
   "dramafull":{
     "name":"dramafull",
@@ -134,5 +134,10 @@
   "embedsu":{
     "name":"embedsu",
     "url":"https://embed.su"
+  },
+    
+  "filmyfly":{
+    "name":"flimyfly",
+    "url":"https://filmyfly.fi"
   }
 }
