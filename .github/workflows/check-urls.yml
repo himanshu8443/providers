@@ -5,6 +5,7 @@ on:
     - cron: '0 0 * * *'  # Run daily at midnight UTC
   workflow_dispatch:      # Allow manual triggering
 
+# Very important - explicitly set permissions
 permissions:
   contents: write
 
@@ -15,8 +16,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PAT }}
+        # No token specified - will use default GITHUB_TOKEN
       
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -28,13 +28,31 @@ jobs:
 
       - name: Run URL checker
         run: node .github/scripts/url-checker.js
-      
-      # Use a dedicated GitHub Action for commits and pushes
-      - name: Commit and push changes
-        uses: EndBug/add-and-commit@v9
+        
+      # Simple push approach using the actions/github-script action
+      - name: Commit changes if any
+        uses: actions/github-script@v6
         with:
-          add: 'modflix.json'
-          message: 'Update provider URLs [skip ci]'
-          default_author: github_actions
-          push: true
-          github_token: ${{ secrets.PAT }}
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Check if there are changes to commit
+            try {
+              execSync('git add modflix.json');
+              const status = execSync('git status --porcelain').toString().trim();
+              
+              if (status) {
+                console.log('Changes detected. Committing...');
+                execSync('git config --global user.name "GitHub Actions"');
+                execSync('git config --global user.email "actions@github.com"');
+                execSync('git commit -m "Update provider URLs [skip ci]"');
+                execSync('git push');
+                console.log('Changes committed and pushed successfully.');
+              } else {
+                console.log('No changes to commit.');
+              }
+            } catch (error) {
+              console.error('Error during git operations:', error);
+              process.exit(1);
+            }
