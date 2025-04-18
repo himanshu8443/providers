@@ -38,7 +38,19 @@ jobs:
             # Use curl to follow redirects (-L), get final URL (-w '%{url_effective}'),
             # suppress output (-s), discard body (-o /dev/null), get status code (-w '%{http_code}')
             # Set timeouts to prevent hanging
+            # IMPORTANT: Capture exit code separately to handle failures without stopping the script
             response=$(curl -Lso /dev/null -w "%{http_code} %{url_effective}" --max-time 15 --connect-timeout 7 "$original_url")
+            curl_exit_code=$? # Capture curl's exit code
+
+            # === Failure Handling ===
+            # Check if curl itself failed (e.g., DNS error, connection timeout)
+            if [ $curl_exit_code -ne 0 ]; then
+                echo "  -> curl command failed with exit code $curl_exit_code for URL: $original_url. Skipping."
+                continue # Skip to the next URL in the loop
+            fi
+
+            # === Success Handling (curl exit code was 0) ===
+            # Parse the response only if curl succeeded
             http_code=$(echo "$response" | awk '{print $1}')
             final_url=$(echo "$response" | awk '{print $2}')
 
@@ -52,20 +64,12 @@ jobs:
               new_scheme_host=$(echo "$final_url" | sed -E 's|^(https?://[^/]+).*|\1|')
 
               # Extract the path, query, and fragment from the original URL
-              # This preserves things like trailing slashes or specific paths
               original_path_etc=$(echo "$original_url" | sed -E 's|https?://[^/]+(.*)|\1|')
               if [[ -z "$original_path_etc" ]]; then
-                 # Handle cases where the original URL might just be the domain (e.g., https://example.com)
-                 # Check if the original URL ended with a slash
                  if [[ "$original_url" == */ ]]; then
                     original_path_etc="/"
-                 else
-                     # If final URL has a path and original didn't, maybe use final's path?
-                     # For now, keeping it simple: if original had no path, new one has no path unless original ended with /
-                     : # Keep original_path_etc empty or "/" based on above check
                  fi
               fi
-
 
               # Construct the new URL using the new scheme/host and original path/query/fragment
               new_url="${new_scheme_host}${original_path_etc}"
@@ -75,22 +79,28 @@ jobs:
               updated_json=$(echo "$updated_json" | jq --arg k "$key" --arg nu "$new_url" '.[$k].url = $nu')
               changes_made=true
               echo "  -> Updated JSON for key $key"
-            elif [[ "$http_code" == "200" ]]; then
-              echo "  -> URL OK (200)."
-            else
-              echo "  -> URL check failed or returned non-redirect/non-200 status ($http_code). No changes made for this URL."
-            fi
-          done
 
+            elif [[ "$http_code" == "200" ]]; then
+              echo "  -> URL OK (200)." # Do nothing as requested
+
+            else
+              # Handle non-200, non-3xx statuses (e.g., 404, 500) or other curl success scenarios
+              echo "  -> URL check returned status $http_code. No changes made for this URL." # Do nothing as requested
+            fi
+          done # End of loop for keys
+
+          # --- Post-loop logic (Commit changes if any) ---
           if $changes_made; then
             echo "Changes were made. Writing updated modflix.json"
             echo "$updated_json" | jq '.' > modflix.json # Write updated content back, pretty-printed
-            # Set output for the next step
             echo "changes_detected=true" >> $GITHUB_OUTPUT
           else
-            echo "No changes detected in URLs."
+            echo "No changes detected in URLs that required updates."
             # Restore original file to avoid timestamp changes if only formatting changed
-            mv modflix.json.bak modflix.json
+            # Check if backup exists before moving
+            if [ -f modflix.json.bak ]; then
+               mv modflix.json.bak modflix.json
+            fi
             echo "changes_detected=false" >> $GITHUB_OUTPUT
           fi
 
