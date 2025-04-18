@@ -2,31 +2,39 @@ name: Check Provider URLs
 
 on:
   schedule:
-    - cron: "0 0 * * *" # Run daily at midnight UTC
-  workflow_dispatch: # Allow manual triggering
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+  workflow_dispatch:      # Allow manual triggering
+
+# Option 1: Set explicit permissions for the GITHUB_TOKEN
+permissions:
+  contents: write         # Allows writing to the repository
 
 jobs:
   check-urls:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
+        # Option 2: Use a Personal Access Token instead
+        # Uncomment the following lines if using PAT approach
+        with:
+           token: ${{ secrets.PAT }}  # Use the PAT you added in repository secrets
+      
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16"
-
+          node-version: '18'  # Updated to a more recent Node.js version
+      
       - name: Install dependencies
         run: npm install axios
 
       - name: Run URL checker
         run: node .github/scripts/url-checker.js
-
+      
       - name: Commit changes if any
         run: |
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add modflix.json
-          git diff --cached --quiet || git commit -m "Update provider URLs [skip ci]" && git push
+          git diff --cached --quiet || (git commit -m "Update provider URLs [skip ci]" && git push)
