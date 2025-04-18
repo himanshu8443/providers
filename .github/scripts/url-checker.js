@@ -14,7 +14,7 @@ function readModflixJson() {
   }
 }
 
-// Extract domain (origin) from URL
+// Extract domain (origin) from URL without trailing slash
 function getDomain(url) {
   try {
     const urlObj = new URL(url);
@@ -25,21 +25,13 @@ function getDomain(url) {
   }
 }
 
-// Extract ONLY the path from the original URL
-function getOriginalPath(url) {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.pathname + urlObj.search + urlObj.hash;
-  } catch (error) {
-    console.error(`Error extracting path from ${url}:`, error);
-    return '';
-  }
+// Check if original URL has a trailing slash in path
+function hasTrailingSlash(url) {
+  return url.endsWith('/') && !url.endsWith('://');
 }
 
 // Check URL and return new URL if domain redirected
 async function checkUrl(url) {
-  const originalUrl = url;
-  
   try {
     // Set timeout to 10 seconds to avoid hanging
     const response = await axios.head(url, {
@@ -65,17 +57,19 @@ async function checkUrl(url) {
         
         console.log(`🔄 ${url} redirects to ${fullRedirectUrl}`);
         
-        // IMPORTANT: Only extract the domain/origin from the redirect URL
+        // Get the new domain
         const newDomain = getDomain(fullRedirectUrl);
         
-        // Get the ORIGINAL path from the modflix.json URL (might be empty, might have trailing slash)
-        const originalPath = getOriginalPath(originalUrl);
+        // Check if original URL had a trailing slash
+        const needsTrailingSlash = hasTrailingSlash(url);
         
-        // Combine new domain with original path
-        const finalUrl = newDomain + originalPath;
+        // Create new URL: new domain + trailing slash if the original had one
+        let finalUrl = newDomain;
+        if (needsTrailingSlash) {
+          finalUrl += '/';
+        }
         
-        // Log the change
-        console.log(`Will update to: ${finalUrl} (new domain + original path)`);
+        console.log(`Will update to: ${finalUrl} (preserved trailing slash: ${needsTrailingSlash})`);
         return finalUrl;
       }
     } else {
@@ -105,16 +99,19 @@ async function checkUrl(url) {
             fullRedirectUrl = new URL(newLocation, baseUrl.origin).toString();
           }
           
-          // IMPORTANT: Only extract the domain/origin 
+          // Get the new domain
           const newDomain = getDomain(fullRedirectUrl);
           
-          // Keep ORIGINAL path
-          const originalPath = getOriginalPath(originalUrl);
+          // Check if original URL had a trailing slash
+          const needsTrailingSlash = hasTrailingSlash(url);
           
-          // Combine new domain with original path
-          const finalUrl = newDomain + originalPath;
+          // Create new URL: new domain + trailing slash if the original had one
+          let finalUrl = newDomain;
+          if (needsTrailingSlash) {
+            finalUrl += '/';
+          }
           
-          console.log(`Will update to: ${finalUrl} (new domain + original path)`);
+          console.log(`Will update to: ${finalUrl} (preserved trailing slash: ${needsTrailingSlash})`);
           return finalUrl;
         }
       } else {
@@ -161,7 +158,9 @@ async function main() {
   
   // Write changes back to file if needed
   if (hasChanges) {
-    fs.writeFileSync(FILE_PATH, JSON.stringify(providers, null, 2));
+    // Use a space-efficient JSON format but with proper formatting
+    const jsonString = JSON.stringify(providers, null, 2);
+    fs.writeFileSync(FILE_PATH, jsonString);
     console.log(`✅ Updated ${FILE_PATH} with new URLs`);
   } else {
     console.log(`ℹ️ No changes needed for ${FILE_PATH}`);
