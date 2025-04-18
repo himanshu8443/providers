@@ -5,7 +5,6 @@ on:
     - cron: '0 0 * * *'  # Run daily at midnight UTC
   workflow_dispatch:      # Allow manual triggering
 
-# Set explicit permissions for the GITHUB_TOKEN
 permissions:
   contents: write
 
@@ -17,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PAT }}  # Use PAT for checkout
+          token: ${{ secrets.PAT }}
       
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -30,19 +29,12 @@ jobs:
       - name: Run URL checker
         run: node .github/scripts/url-checker.js
       
+      # Use a dedicated GitHub Action for commits and pushes
       - name: Commit and push changes
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add modflix.json
-          
-          # Only commit and push if there are changes
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update provider URLs [skip ci]"
-            
-            # Configure Git to use the PAT for push
-            git remote set-url origin https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}.git
-            git push
-          fi
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'modflix.json'
+          message: 'Update provider URLs [skip ci]'
+          default_author: github_actions
+          push: true
+          github_token: ${{ secrets.PAT }}
