@@ -14,7 +14,7 @@ function readModflixJson() {
   }
 }
 
-// Extract domain from URL
+// Extract domain (origin) from URL
 function getDomain(url) {
   try {
     const urlObj = new URL(url);
@@ -25,35 +25,27 @@ function getDomain(url) {
   }
 }
 
-// Extract full path from URL including trailing slash
-function getPath(url) {
+// Extract ONLY the path from the original URL
+function getOriginalPath(url) {
   try {
     const urlObj = new URL(url);
-    let pathWithQuery = urlObj.pathname + urlObj.search + urlObj.hash;
-    
-    // Important: Check the original URL for trailing slash to preserve it exactly
-    const endsWithSlash = url.endsWith('/');
-    if (endsWithSlash && !pathWithQuery.endsWith('/')) {
-      pathWithQuery = pathWithQuery + '/';
-    }
-    
-    return pathWithQuery;
+    return urlObj.pathname + urlObj.search + urlObj.hash;
   } catch (error) {
     console.error(`Error extracting path from ${url}:`, error);
     return '';
   }
 }
 
-// Check URL and return new URL if redirected
+// Check URL and return new URL if domain redirected
 async function checkUrl(url) {
-  const originalUrl = url; // Store the exact original URL to check for trailing slash later
+  const originalUrl = url;
   
   try {
     // Set timeout to 10 seconds to avoid hanging
     const response = await axios.head(url, {
       maxRedirects: 0,
       timeout: 10000,
-      validateStatus: status => true // Accept all status codes to handle them manually
+      validateStatus: status => true
     });
     
     // If status is 200, no change needed
@@ -73,28 +65,24 @@ async function checkUrl(url) {
         
         console.log(`🔄 ${url} redirects to ${fullRedirectUrl}`);
         
-        // Get new domain but keep original path
+        // IMPORTANT: Only extract the domain/origin from the redirect URL
         const newDomain = getDomain(fullRedirectUrl);
-        const originalPath = getPath(originalUrl); // Use the original URL for path extraction
         
-        // Construct new URL with original path, preserving trailing slashes exactly
-        let finalUrl = newDomain;
-        if (originalPath) {
-          finalUrl += originalPath;
-        }
+        // Get the ORIGINAL path from the modflix.json URL (might be empty, might have trailing slash)
+        const originalPath = getOriginalPath(originalUrl);
         
-        // Double-check if we preserved trailing slash correctly when present in original
-        if (originalUrl.endsWith('/') && !finalUrl.endsWith('/')) {
-          finalUrl += '/';
-        }
+        // Combine new domain with original path
+        const finalUrl = newDomain + originalPath;
         
+        // Log the change
+        console.log(`Will update to: ${finalUrl} (new domain + original path)`);
         return finalUrl;
       }
     } else {
       console.log(`⚠️ ${url} returned status ${response.status}`);
     }
   } catch (error) {
-    // Try GET request if HEAD fails (some servers don't properly support HEAD)
+    // Try GET request if HEAD fails
     try {
       const response = await axios.get(url, {
         maxRedirects: 0,
@@ -111,26 +99,22 @@ async function checkUrl(url) {
         if (newLocation) {
           console.log(`🔄 ${url} redirects to ${newLocation}`);
           
-          // Process redirect similar to above
           let fullRedirectUrl = newLocation;
           if (!newLocation.startsWith('http')) {
             const baseUrl = new URL(url);
             fullRedirectUrl = new URL(newLocation, baseUrl.origin).toString();
           }
           
+          // IMPORTANT: Only extract the domain/origin 
           const newDomain = getDomain(fullRedirectUrl);
-          const originalPath = getPath(originalUrl); // Use original URL
           
-          let finalUrl = newDomain;
-          if (originalPath) {
-            finalUrl += originalPath;
-          }
+          // Keep ORIGINAL path
+          const originalPath = getOriginalPath(originalUrl);
           
-          // Double-check trailing slash preservation
-          if (originalUrl.endsWith('/') && !finalUrl.endsWith('/')) {
-            finalUrl += '/';
-          }
+          // Combine new domain with original path
+          const finalUrl = newDomain + originalPath;
           
+          console.log(`Will update to: ${finalUrl} (new domain + original path)`);
           return finalUrl;
         }
       } else {
@@ -166,9 +150,6 @@ async function main() {
     try {
       const newUrl = await checkUrl(url);
       if (newUrl && newUrl !== url) {
-        // Before updating, log the exact change for verification
-        console.log(`URL change details: Original="${url}" → New="${newUrl}"`);
-        
         provider.url = newUrl;
         hasChanges = true;
         console.log(`Updated ${provider.name} URL from ${url} to ${newUrl}`);
