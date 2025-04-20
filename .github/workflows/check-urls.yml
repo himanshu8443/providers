@@ -5,7 +5,7 @@ on:
     - cron: '0 0 * * *'  # Run daily at midnight UTC
   workflow_dispatch:      # Allow manual triggering
 
-# Very important - explicitly set permissions
+# Set explicit permissions for the GITHUB_TOKEN
 permissions:
   contents: write
 
@@ -16,7 +16,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        # No token specified - will use default GITHUB_TOKEN
       
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -29,30 +28,18 @@ jobs:
       - name: Run URL checker
         run: node .github/scripts/url-checker.js
         
-      # Simple push approach using the actions/github-script action
+      # Better approach using git status
       - name: Commit changes if any
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            const { execSync } = require('child_process');
-            
-            // Check if there are changes to commit
-            try {
-              execSync('git add modflix.json');
-              const status = execSync('git status --porcelain').toString().trim();
-              
-              if (status) {
-                console.log('Changes detected. Committing...');
-                execSync('git config --global user.name "GitHub Actions"');
-                execSync('git config --global user.email "actions@github.com"');
-                execSync('git commit -m "Update provider URLs [skip ci]"');
-                execSync('git push');
-                console.log('Changes committed and pushed successfully.');
-              } else {
-                console.log('No changes to commit.');
-              }
-            } catch (error) {
-              console.error('Error during git operations:', error);
-              process.exit(1);
-            }
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add modflix.json
+          
+          # Check if there are changes using git status (more reliable)
+          if [[ $(git status --porcelain modflix.json) ]]; then
+            echo "Found changes in modflix.json, committing..."
+            git commit -m "Update provider URLs [skip ci]"
+            git push
+          else
+            echo "No changes detected in modflix.json"
+          fi
