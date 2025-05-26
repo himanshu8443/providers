@@ -33,7 +33,7 @@
   },
   "multi": {
     "name": "multimovies",
-    "url": "https://multimovies.media"
+    "url": "https://multimovies.boutique"
   },
   "w4u": {
     "name": "world4ufree",
@@ -125,7 +125,7 @@
   },
   "dramafull": {
     "name": "dramafull",
-    "url": "https://dramafull.net"
+    "url": "https://dramafull.co"
   },
   "nfCookie": {
     "name": "nf cookie verify",
@@ -137,6 +137,6 @@
   },
   "filmyfly": {
     "name": "flimyfly",
-    "url": "https://filmyfly.stream"
+    "url": "https://filmyfly.date"
   }
 }
