@@ -5,7 +5,7 @@
   },
   "Animeflix": {
     "name": "Animeflix",
-    "url": "https://animeflix.lol"
+    "url": "https://animeflix.ltd"
   },
   "Topmovies": {
     "name": "Topmovies",
@@ -139,8 +139,8 @@
     "name": "flimyfly",
     "url": "https://filmyfly.men"
   },
-  "4khdhub":{
-    "name":"4khdhub",
-    "url":"https://4khdhub.fans"
+  "4khdhub": {
+    "name": "4khdhub",
+    "url": "https://4khdhub.fans"
   }
 }
