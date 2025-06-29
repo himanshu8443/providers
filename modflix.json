@@ -142,5 +142,9 @@
   "4khdhub": {
     "name": "4khdhub",
     "url": "https://4khdhub.fans"
-  }
+  },
+  "moviezwap": {
+     "name": "moviezwap",
+     "url": "https://www.moviezwap.pink/"
+   }
 }
