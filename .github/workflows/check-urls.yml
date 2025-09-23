@@ -2,16 +2,12 @@ name: Check Provider URLs
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight UTC (fixed syntax)
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
   workflow_dispatch:      # Allow manual triggering
 
 # Set explicit permissions for the GITHUB_TOKEN
 permissions:
   contents: write
-  actions: read
-
-env:
-  DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
 jobs:
   check-urls:
@@ -19,244 +15,69 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4  # Updated to v4
-        with:
-          fetch-depth: 1
+        uses: actions/checkout@v3
       
       - name: Set up Node.js
-        uses: actions/setup-node@v4  # Updated to v4
+        uses: actions/setup-node@v3
         with:
-          node-version: '20'  # Updated to more recent LTS version
-          cache: 'npm'
-          cache-dependency-path: '**/package.json'  # Use package.json for caching
+          node-version: '18'
       
       - name: Install dependencies
-        run: |
-          # Create a minimal package.json to avoid npm warnings
-          if [ ! -f package.json ]; then
-            cat > package.json << EOF
-          {
-            "name": "provider-url-checker",
-            "version": "1.0.0",
-            "description": "Automated provider URL checking",
-            "main": "index.js",
-            "scripts": {
-              "test": "echo \"Error: no test specified\" && exit 1"
-            },
-            "dependencies": {
-              "axios": "^1.0.0"
-            },
-            "author": "GitHub Actions",
-            "license": "ISC"
-          }
-          EOF
-          fi
-          npm install axios
-      
+        run: npm install axios
+
       - name: Run URL checker
-        id: url-check
+        id: url_checker
         run: |
-          node .github/scripts/url-checker.js
-          echo "check_completed=true" >> $GITHUB_OUTPUT
+          # Run the checker and save output to a file
+          node .github/scripts/url-checker.js > url_changes.txt
           
-          # Capture changes summary if the script generates one
-          if [ -f "url_changes_summary.txt" ]; then
-            echo "changes_summary<<EOF" >> $GITHUB_OUTPUT
-            cat url_changes_summary.txt >> $GITHUB_OUTPUT
+          # Check if the script generated any output about changes
+          if [ -s url_changes.txt ]; then
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
+            echo "changes_content<<EOF" >> $GITHUB_OUTPUT
+            cat url_changes.txt >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "changes_detected=false" >> $GITHUB_OUTPUT
           fi
-        continue-on-error: false  # Fail the workflow if URL checker fails
-      
-      - name: Check for changes
-        id: changes
+        
+      # Better approach using git status
+      - name: Commit changes if any
+        id: commit_changes
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Stage the file
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
           git add modflix.json
           
-          # Check if there are staged changes
-          if git diff --staged --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+          # Check if there are changes using git status (more reliable)
+          if [[ $(git status --porcelain modflix.json) ]]; then
+            echo "Found changes in modflix.json, committing..."
+            git commit -m "Update provider URLs [skip ci]"
+            git push
+            echo "changes_made=true" >> $GITHUB_OUTPUT
+          else
             echo "No changes detected in modflix.json"
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in modflix.json"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Send Discord notification
-        if: steps.changes.outputs.has_changes == 'true' && env.DISCORD_WEBHOOK != ''
+        if: steps.commit_changes.outputs.changes_made == 'true'
         run: |
-          # Analyze the changes in modflix.json to show specific providers updated
-          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          CHANGES="${{ steps.url_checker.outputs.changes_content }}"
           
-          # Extract detailed changes showing old vs new URLs
-          git diff --staged modflix.json > changes.diff
-          
-          # Parse the diff to extract provider updates
-          PROVIDER_UPDATES=""
-          CHANGE_COUNT=0
-          
-          # Process the diff line by line to find URL changes
-          while IFS= read -r line; do
-            # Look for removed lines (old URLs)
-            if [[ $line =~ ^-.*\"url\".*:.*\"(.*)\" ]]; then
-              OLD_URL="${BASH_REMATCH[1]}"
-            fi
-            # Look for added lines (new URLs) 
-            if [[ $line =~ ^\+.*\"url\".*:.*\"(.*)\" ]]; then
-              NEW_URL="${BASH_REMATCH[1]}"
-              # Look backwards for the provider name
-              PROVIDER_NAME=""
-              # Search recent lines for provider name pattern
-              if [[ -n "$OLD_URL" ]]; then
-                # Try to extract provider name from context
-                CONTEXT=$(git diff --staged modflix.json -U5 | grep -B10 -A2 "$NEW_URL" | grep -E '"name".*:.*".*"' | tail -1)
-                if [[ $CONTEXT =~ \"name\".*:.*\"([^\"]+)\" ]]; then
-                  PROVIDER_NAME="${BASH_REMATCH[1]}"
-                fi
-                
-                # Add to updates list (truncate long URLs for readability)
-                OLD_DISPLAY=$(echo "$OLD_URL" | cut -c1-50)$([ ${#OLD_URL} -gt 50 ] && echo "...")
-                NEW_DISPLAY=$(echo "$NEW_URL" | cut -c1-50)$([ ${#NEW_URL} -gt 50 ] && echo "...")
-                
-                if [[ -n "$PROVIDER_NAME" ]]; then
-                  PROVIDER_UPDATES="${PROVIDER_UPDATES}\n**${PROVIDER_NAME}**\n\`\`\`diff\n- ${OLD_DISPLAY}\n+ ${NEW_DISPLAY}\n\`\`\`"
-                else
-                  PROVIDER_UPDATES="${PROVIDER_UPDATES}\n**Provider**\n\`\`\`diff\n- ${OLD_DISPLAY}\n+ ${NEW_DISPLAY}\n\`\`\`"
-                fi
-                CHANGE_COUNT=$((CHANGE_COUNT + 1))
-                OLD_URL=""
-              fi
-            fi
-          done < changes.diff
-          
-          # If no specific changes found, fall back to general count
-          if [[ $CHANGE_COUNT -eq 0 ]]; then
-            CHANGE_COUNT=$(git diff --staged --numstat modflix.json | awk '{print $1 + $2}')
-            PROVIDER_UPDATES="📄 ${CHANGE_COUNT} lines modified in modflix.json"
-          else
-            # Truncate if too long for Discord (2000 char limit per field)
-            if [[ ${#PROVIDER_UPDATES} -gt 1800 ]]; then
-              PROVIDER_UPDATES=$(echo -e "$PROVIDER_UPDATES" | head -c 1800)
-              PROVIDER_UPDATES="${PROVIDER_UPDATES}\n\n... (truncated, view full changes in repository)"
-            fi
+          if [ -z "$CHANGES" ]; then
+            CHANGES="Provider URLs have been updated but no specific details are available."
           fi
           
-          # Create Discord webhook payload
-          cat > discord_payload.json << EOF
-          {
-            "embeds": [
-              {
-                "title": "🔄 Provider URLs Updated",
-                "description": "The provider URL checker has detected and updated broken or changed URLs.",
-                "color": 3066993,
-                "fields": [
-                  {
-                    "name": "📊 Changes Detected",
-                    "value": "${CHANGE_COUNT} provider URL(s) updated",
-                    "inline": true
-                  },
-                  {
-                    "name": "⏰ Updated",
-                    "value": "${TIMESTAMP}",
-                    "inline": true
-                  },
-                  {
-                    "name": "🔗 Repository",
-                    "value": "[View Full Changes](https://github.com/${{ github.repository }}/commit/${{ github.sha }})",
-                    "inline": false
-                  }
-                ],
-                "footer": {
-                  "text": "Automated by GitHub Actions"
-                },
-                "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-              }
-            ]
-          }
-          EOF
-          
-          # Add provider updates field if we have specific changes
-          if [[ $CHANGE_COUNT -gt 0 && ${#PROVIDER_UPDATES} -gt 20 ]]; then
-            # Use jq to safely add the provider updates field
-            echo "$PROVIDER_UPDATES" > provider_updates.txt
-            ESCAPED_UPDATES=$(cat provider_updates.txt | jq -Rs .)
-            jq --argjson updates "$ESCAPED_UPDATES" '.embeds[0].fields += [{"name": "📋 Updated Providers", "value": $updates, "inline": false}]' discord_payload.json > temp_payload.json
-            mv temp_payload.json discord_payload.json
-          fi
-          
-          # Add changes summary from URL checker if available
-          if [[ -n "${{ steps.url-check.outputs.changes_summary }}" ]]; then
-            SUMMARY_ESCAPED=$(echo "${{ steps.url-check.outputs.changes_summary }}" | jq -Rs .)
-            jq --argjson summary "$SUMMARY_ESCAPED" '.embeds[0].fields += [{"name": "🔍 Check Summary", "value": $summary, "inline": false}]' discord_payload.json > temp_payload.json
-            mv temp_payload.json discord_payload.json
-          fi
-          
-          # Send to Discord
           curl -H "Content-Type: application/json" \
-               -d @discord_payload.json \
-               "${{ env.DISCORD_WEBHOOK }}" \
-               --fail --silent --show-error
-          
-          if [ $? -eq 0 ]; then
-            echo "✅ Discord notification sent successfully"
-            echo "📊 Reported ${CHANGE_COUNT} provider updates"
-          else
-            echo "❌ Failed to send Discord notification"
-            exit 1
-          fi
-      
-      - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          # Create commit with timestamp
-          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          git commit -m "chore: update provider URLs - $TIMESTAMP [skip ci]"
-          
-          # Push with retry logic
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if git push; then
-              echo "Successfully pushed changes"
-              break
-            else
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              echo "Push failed, attempt $RETRY_COUNT of $MAX_RETRIES"
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Retrying in 10 seconds..."
-                sleep 10
-                git pull --rebase origin main || git pull --rebase origin master
-              fi
-            fi
-          done
-          
-          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-            echo "Failed to push after $MAX_RETRIES attempts"
-            exit 1
-          fi
-      
-      - name: Create summary
-        if: always()
-        run: |
-          echo "## URL Check Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL Check Completed:** ${{ steps.url-check.outputs.check_completed || 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Changes Detected:** ${{ steps.changes.outputs.has_changes || 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Discord Notification:** ${{ steps.changes.outputs.has_changes == 'true' && env.DISCORD_WEBHOOK != '' && 'Sent' || 'Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-          
-          # Add changes summary if available
-          if [[ -n "${{ steps.url-check.outputs.changes_summary }}" ]]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Changes Summary" >> $GITHUB_STEP_SUMMARY
-            echo "${{ steps.url-check.outputs.changes_summary }}" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Add failure information if applicable
-          if [[ "${{ job.status }}" == "failure" ]]; then
-            echo "- **Note:** Check the logs above for error details" >> $GITHUB_STEP_SUMMARY
-          fi
+               -d '{
+                 "embeds": [{
+                   "title": "Provider URLs Updated",
+                   "description": "'"${CHANGES}"'",
+                   "color": 3066993,
+                   "footer": {
+                     "text": "Updated on '"$(date +"%Y-%m-%d %H:%M:%S UTC")"'"
+                   }
+                 }]
+               }' \
+               ${{ secrets.DISCORD_WEBHOOK }}
