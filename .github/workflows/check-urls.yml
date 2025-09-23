@@ -28,10 +28,29 @@ jobs:
         with:
           node-version: '20'  # Updated to more recent LTS version
           cache: 'npm'
+          cache-dependency-path: '**/package.json'  # Use package.json for caching
       
       - name: Install dependencies
         run: |
-          npm init -y 2>/dev/null || true  # Initialize package.json if it doesn't exist
+          # Create a minimal package.json to avoid npm warnings
+          if [ ! -f package.json ]; then
+            cat > package.json << EOF
+          {
+            "name": "provider-url-checker",
+            "version": "1.0.0",
+            "description": "Automated provider URL checking",
+            "main": "index.js",
+            "scripts": {
+              "test": "echo \"Error: no test specified\" && exit 1"
+            },
+            "dependencies": {
+              "axios": "^1.0.0"
+            },
+            "author": "GitHub Actions",
+            "license": "ISC"
+          }
+          EOF
+          fi
           npm install axios
       
       - name: Run URL checker
