@@ -2,6 +2,7 @@ const fs = require('fs');
 const axios = require('axios');
 
 const FILE_PATH = 'modflix.json';
+const updatedProviders = []; // Track updated providers for Discord notification
 
 // Read the modflix.json file
 function readModflixJson() {
@@ -147,9 +148,20 @@ async function main() {
     try {
       const newUrl = await checkUrl(url);
       if (newUrl && newUrl !== url) {
+        // Store the old URL before updating
+        const oldUrl = provider.url;
+        
+        // Update the provider URL
         provider.url = newUrl;
         hasChanges = true;
-        console.log(`Updated ${provider.name} URL from ${url} to ${newUrl}`);
+        console.log(`Updated ${provider.name} URL from ${oldUrl} to ${newUrl}`);
+        
+        // Track updated provider for Discord notification
+        updatedProviders.push({
+          name: provider.name,
+          oldUrl: oldUrl,
+          newUrl: newUrl
+        });
       }
     } catch (error) {
       console.log(`❌ Error processing ${url}: ${error.message}`);
@@ -162,6 +174,15 @@ async function main() {
     const jsonString = JSON.stringify(providers, null, 2);
     fs.writeFileSync(FILE_PATH, jsonString);
     console.log(`✅ Updated ${FILE_PATH} with new URLs`);
+    
+    // Output updated providers for Discord notification
+    if (updatedProviders.length > 0) {
+      console.log("\n### UPDATED_PROVIDERS_START ###");
+      for (const provider of updatedProviders) {
+        console.log(`${provider.name}|${provider.oldUrl}|${provider.newUrl}`);
+      }
+      console.log("### UPDATED_PROVIDERS_END ###");
+    }
   } else {
     console.log(`ℹ️ No changes needed for ${FILE_PATH}`);
   }
