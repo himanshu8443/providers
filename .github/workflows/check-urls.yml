@@ -28,20 +28,22 @@ jobs:
       - name: Run URL checker
         id: url_checker
         run: |
-          # Run the checker and save output to a file
+          # Run the checker and capture its output
           node .github/scripts/url-checker.js > url_changes.txt
           
           # Check if the script generated any output about changes
           if [ -s url_changes.txt ]; then
-            echo "changes_detected=true" >> $GITHUB_OUTPUT
-            echo "changes_content<<EOF" >> $GITHUB_OUTPUT
-            cat url_changes.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "CHANGES_DETECTED=true" >> $GITHUB_ENV
+            # Read file content into a variable with proper escaping
+            CHANGES_CONTENT=$(cat url_changes.txt)
+            # Use environment file for multiline content
+            echo 'CHANGES_CONTENT<<EOF' >> $GITHUB_ENV
+            echo "$CHANGES_CONTENT" >> $GITHUB_ENV
+            echo 'EOF' >> $GITHUB_ENV
           else
-            echo "changes_detected=false" >> $GITHUB_OUTPUT
+            echo "CHANGES_DETECTED=false" >> $GITHUB_ENV
           fi
         
-      # Better approach using git status
       - name: Commit changes if any
         id: commit_changes
         run: |
@@ -49,35 +51,50 @@ jobs:
           git config --global user.email "actions@github.com"
           git add modflix.json
           
-          # Check if there are changes using git status (more reliable)
+          # Check if there are changes using git status
           if [[ $(git status --porcelain modflix.json) ]]; then
             echo "Found changes in modflix.json, committing..."
             git commit -m "Update provider URLs [skip ci]"
             git push
-            echo "changes_made=true" >> $GITHUB_OUTPUT
+            echo "CHANGES_MADE=true" >> $GITHUB_ENV
           else
             echo "No changes detected in modflix.json"
-            echo "changes_made=false" >> $GITHUB_OUTPUT
+            echo "CHANGES_MADE=false" >> $GITHUB_ENV
           fi
 
       - name: Send Discord notification
-        if: steps.commit_changes.outputs.changes_made == 'true'
+        if: env.CHANGES_MADE == 'true' && env.CHANGES_DETECTED == 'true'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          CHANGES="${{ steps.url_checker.outputs.changes_content }}"
-          
-          if [ -z "$CHANGES" ]; then
-            CHANGES="Provider URLs have been updated but no specific details are available."
+          # Verify webhook URL is available
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "Error: DISCORD_WEBHOOK secret is not set. Skipping notification."
+            exit 0
           fi
           
-          curl -H "Content-Type: application/json" \
-               -d '{
-                 "embeds": [{
-                   "title": "Provider URLs Updated",
-                   "description": "'"${CHANGES}"'",
-                   "color": 3066993,
-                   "footer": {
-                     "text": "Updated on '"$(date +"%Y-%m-%d %H:%M:%S UTC")"'"
-                   }
-                 }]
-               }' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+          # Create a temporary JSON file for the payload
+          cat > discord_payload.json << EOL
+          {
+            "embeds": [
+              {
+                "title": "Provider URLs Updated",
+                "description": "${{ env.CHANGES_CONTENT }}",
+                "color": 3066993,
+                "footer": {
+                  "text": "Updated on $(date +"%Y-%m-%d %H:%M:%S UTC")"
+                }
+              }
+            ]
+          }
+          EOL
+          
+          # Send the webhook
+          curl -s -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK"
+          
+          # Check curl status
+          if [ $? -eq 0 ]; then
+            echo "Discord notification sent successfully!"
+          else
+            echo "Failed to send Discord notification."
+          fi
