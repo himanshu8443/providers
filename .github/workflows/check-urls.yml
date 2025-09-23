@@ -72,24 +72,39 @@ jobs:
           # Count updated providers
           PROVIDER_COUNT=$(wc -l < updated_providers.txt)
           
-          # Build a clean description with updated providers
-          DESCRIPTION="## 🔄 Provider URLs Updated ($PROVIDER_COUNT)\n\n"
-          
-          # Process each updated provider and format nicely
-          while IFS='|' read -r name oldUrl newUrl; do
-            DESCRIPTION="${DESCRIPTION}### ${name}\n"
-            DESCRIPTION="${DESCRIPTION}**Old:** \`${oldUrl}\`\n"
-            DESCRIPTION="${DESCRIPTION}**New:** \`${newUrl}\`\n\n"
-          done < updated_providers.txt
-          
-          # Create JSON payload with proper escaping
-          PAYLOAD=$(cat <<EOF
+          # Create discord-message.json file with proper formatting
+          cat > discord-message.json << EOF
           {
             "embeds": [
               {
-                "title": "Provider URLs Updated",
-                "description": $(echo -n "$DESCRIPTION" | jq -Rs .),
+                "title": "🔄 Provider URLs Updated ($PROVIDER_COUNT)",
                 "color": 3066993,
+                "fields": [
+          EOF
+          
+          # Process each updated provider
+          while IFS='|' read -r name oldUrl newUrl; do
+            # Escape any double quotes in the values
+            name=$(echo "$name" | sed 's/"/\\"/g')
+            oldUrl=$(echo "$oldUrl" | sed 's/"/\\"/g')
+            newUrl=$(echo "$newUrl" | sed 's/"/\\"/g')
+            
+            # Add the provider as a field with clickable links
+            cat >> discord-message.json << EOF
+                  {
+                    "name": "$name",
+                    "value": "**Old:** [$oldUrl]($oldUrl)\\n**New:** [$newUrl]($newUrl)",
+                    "inline": false
+                  },
+          EOF
+          done < updated_providers.txt
+          
+          # Remove the trailing comma from the last field
+          sed -i '$ s/,$//' discord-message.json
+          
+          # Complete the JSON structure
+          cat >> discord-message.json << EOF
+                ],
                 "footer": {
                   "text": "Updated on $(date +"%Y-%m-%d %H:%M:%S UTC")"
                 }
@@ -97,10 +112,16 @@ jobs:
             ]
           }
           EOF
-          )
           
           # Send the webhook
           curl -s -X POST \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
+            -d @discord-message.json \
             "$DISCORD_WEBHOOK"
+          
+          # Check if the webhook was sent successfully
+          if [ $? -eq 0 ]; then
+            echo "Discord notification sent successfully!"
+          else
+            echo "Failed to send Discord notification."
+          fi
