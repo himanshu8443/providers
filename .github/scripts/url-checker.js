@@ -175,10 +175,11 @@ async function main() {
     fs.writeFileSync(FILE_PATH, jsonString);
     console.log(`✅ Updated ${FILE_PATH} with new URLs`);
     
-    // Output updated providers for Discord notification
+    // Output updated providers for Discord notification in a clean format
     if (updatedProviders.length > 0) {
       console.log("\n### UPDATED_PROVIDERS_START ###");
       for (const provider of updatedProviders) {
+        // Format: name|oldUrl|newUrl (pipe-delimited for easy parsing)
         console.log(`${provider.name}|${provider.oldUrl}|${provider.newUrl}`);
       }
       console.log("### UPDATED_PROVIDERS_END ###");
