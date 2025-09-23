@@ -28,24 +28,21 @@ jobs:
       - name: Run URL checker
         id: url_checker
         run: |
-          # Run the checker and capture its output
-          node .github/scripts/url-checker.js > url_changes.txt
+          # Run the URL checker and save output
+          node .github/scripts/url-checker.js > checker_output.log 2>&1
           
-          # Check if the script generated any output about changes
-          if [ -s url_changes.txt ]; then
+          # Check if there are updated providers
+          if grep -q "### UPDATED_PROVIDERS_START ###" checker_output.log; then
             echo "CHANGES_DETECTED=true" >> $GITHUB_ENV
-            # Read file content into a variable with proper escaping
-            CHANGES_CONTENT=$(cat url_changes.txt)
-            # Use environment file for multiline content
-            echo 'CHANGES_CONTENT<<EOF' >> $GITHUB_ENV
-            echo "$CHANGES_CONTENT" >> $GITHUB_ENV
-            echo 'EOF' >> $GITHUB_ENV
+            
+            # Extract only the updated provider lines between the markers
+            sed -n '/### UPDATED_PROVIDERS_START ###/,/### UPDATED_PROVIDERS_END ###/p' checker_output.log | 
+              grep -v "###" > updated_providers.txt
           else
             echo "CHANGES_DETECTED=false" >> $GITHUB_ENV
           fi
         
       - name: Commit changes if any
-        id: commit_changes
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
@@ -67,19 +64,31 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          # Verify webhook URL is available
           if [ -z "$DISCORD_WEBHOOK" ]; then
             echo "Error: DISCORD_WEBHOOK secret is not set. Skipping notification."
             exit 0
           fi
           
-          # Create a temporary JSON file for the payload
-          cat > discord_payload.json << EOL
+          # Count updated providers
+          PROVIDER_COUNT=$(wc -l < updated_providers.txt)
+          
+          # Build a clean description with updated providers
+          DESCRIPTION="## 🔄 Provider URLs Updated ($PROVIDER_COUNT)\n\n"
+          
+          # Process each updated provider and format nicely
+          while IFS='|' read -r name oldUrl newUrl; do
+            DESCRIPTION="${DESCRIPTION}### ${name}\n"
+            DESCRIPTION="${DESCRIPTION}**Old:** \`${oldUrl}\`\n"
+            DESCRIPTION="${DESCRIPTION}**New:** \`${newUrl}\`\n\n"
+          done < updated_providers.txt
+          
+          # Create JSON payload with proper escaping
+          PAYLOAD=$(cat <<EOF
           {
             "embeds": [
               {
                 "title": "Provider URLs Updated",
-                "description": "${{ env.CHANGES_CONTENT }}",
+                "description": $(echo -n "$DESCRIPTION" | jq -Rs .),
                 "color": 3066993,
                 "footer": {
                   "text": "Updated on $(date +"%Y-%m-%d %H:%M:%S UTC")"
@@ -87,14 +96,11 @@ jobs:
               }
             ]
           }
-          EOL
+          EOF
+          )
           
           # Send the webhook
-          curl -s -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK"
-          
-          # Check curl status
-          if [ $? -eq 0 ]; then
-            echo "Discord notification sent successfully!"
-          else
-            echo "Failed to send Discord notification."
-          fi
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_WEBHOOK"
