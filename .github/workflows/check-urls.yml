@@ -1,3 +1,6 @@
+# This workflow checks provider URLs daily, commits any changes,
+# and sends a notification to a Discord webhook if an update occurs.
+
 name: Check Provider URLs
 
 on:
@@ -13,33 +16,58 @@ jobs:
   check-urls:
     runs-on: ubuntu-latest
     
+    defaults:
+      run:
+        working-directory: ./.github/scripts
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js with Caching
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './.github/scripts/package-lock.json'
       
       - name: Install dependencies
-        run: npm install axios
+        run: npm ci
 
       - name: Run URL checker
-        run: node .github/scripts/url-checker.js
+        run: node url-checker.js
         
-      # Better approach using git status
-      - name: Commit changes if any
+      - name: Commit and Notify if Changes Exist
+        id: commit_and_notify
+        # Return to the root directory for git operations
         run: |
-          git config --global user.name "GitHub Actions"
+          cd ../..
+          git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           git add modflix.json
           
-          # Check if there are changes using git status (more reliable)
+          # Check if there are changes to commit
           if [[ $(git status --porcelain modflix.json) ]]; then
-            echo "Found changes in modflix.json, committing..."
+            echo "✅ Changes detected in modflix.json. Committing and preparing to notify."
             git commit -m "Update provider URLs [skip ci]"
             git push
+            # Set an output to use in the next step's 'if' condition
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
           else
-            echo "No changes detected in modflix.json"
+            echo "ℹ️ No changes detected in modflix.json. Nothing to commit."
+            echo "changes_detected=false" >> $GITHUB_OUTPUT
           fi
+          
+      - name: Send Discord Notification on Update
+        # This step only runs if the previous step detected changes
+        if: steps.commit_and_notify.outputs.changes_detected == 'true'
+        uses: tsg-adapter/discord-webhook-action@v2
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
+          content: ""
+          embed_title: "Provider URLs Updated"
+          embed_description: "The URL checker script found new provider URLs and has updated `modflix.json`. The changes have been pushed to the repository."
+          embed_color: "#28a745" # A nice green color
+          embed_url: "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          embed_footer_text: "Workflow: ${{ github.workflow }}"
+          embed_timestamp: "true"
