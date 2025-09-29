@@ -158,5 +158,13 @@
   "cinevood":{
     "name":"Cinevood",
     "url":"https://w1.kmmovies.fans"
+  },
+  "kmmovies":{
+    "name":"kmmovies",
+    "url":"https://w1.kmmovies.fans"
+  },
+  "zeefliz":{
+    "name":"zeefliz",
+    "url":"https://zeefliz.asia"
   }
 }
