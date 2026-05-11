@@ -62,11 +62,21 @@ async function requestUrl(method, url) {
   });
 }
 
+function logVerboseResult(url, response, finalUrl) {
+  const status = response?.status ?? 'unknown';
+  const locationHeader = response?.headers?.location;
+  console.log(
+    `ℹ️ ${url} -> status=${status} final=${finalUrl}` +
+      (locationHeader ? ` location=${locationHeader}` : '')
+  );
+}
+
 // Check URL and return new URL if domain redirected
 async function checkUrl(url) {
   try {
     const response = await requestUrl('get', url);
     const finalUrl = getFinalUrl(response, url);
+    logVerboseResult(url, response, finalUrl);
 
     if (response.status === 200) {
       const originalDomain = getDomain(url);
@@ -116,6 +126,8 @@ async function checkUrl(url) {
     console.log(`⚠️ ${url} returned status ${response.status}`);
   } catch (error) {
     if (error.response) {
+      const finalUrl = getFinalUrl(error.response, url);
+      logVerboseResult(url, error.response, finalUrl);
       console.log(`⚠️ ${url} returned status ${error.response.status}`);
     } else if (error.code === 'ECONNABORTED') {
       console.log(`⌛ ${url} request timed out`);
