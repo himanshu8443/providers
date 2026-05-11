@@ -11,7 +11,8 @@ const DEFAULT_HEADERS = {
     'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
   'Accept-Encoding': 'gzip, deflate, br',
-  Connection: 'keep-alive'
+  Connection: 'keep-alive',
+  'Upgrade-Insecure-Requests': '1'
 };
 
 // Read the modflix.json file
@@ -64,7 +65,7 @@ async function requestUrl(method, url) {
 // Check URL and return new URL if domain redirected
 async function checkUrl(url) {
   try {
-    const response = await requestUrl('head', url);
+    const response = await requestUrl('get', url);
     const finalUrl = getFinalUrl(response, url);
 
     if (response.status === 200) {
@@ -114,68 +115,14 @@ async function checkUrl(url) {
 
     console.log(`⚠️ ${url} returned status ${response.status}`);
   } catch (error) {
-    // Try GET request if HEAD fails
-    try {
-      const response = await requestUrl('get', url);
-      const finalUrl = getFinalUrl(response, url);
-
-      if (response.status === 200) {
-        const originalDomain = getDomain(url);
-        const finalDomain = getDomain(finalUrl);
-
-        if (finalDomain !== originalDomain) {
-          console.log(`🔄 ${url} resolved to ${finalUrl}`);
-          const needsTrailingSlash = hasTrailingSlash(url);
-          let updatedUrl = finalDomain;
-          if (needsTrailingSlash) {
-            updatedUrl += '/';
-          }
-          console.log(
-            `Will update to: ${updatedUrl} (preserved trailing slash: ${needsTrailingSlash})`
-          );
-          return updatedUrl;
-        }
-
-        console.log(`✅ ${url} is valid (200 OK)`);
-        return null;
-      }
-
-      if (response.status >= 300 && response.status < 400) {
-        const newLocation = response.headers.location;
-        if (newLocation) {
-          console.log(`🔄 ${url} redirects to ${newLocation}`);
-
-          let fullRedirectUrl = newLocation;
-          if (!newLocation.startsWith('http')) {
-            const baseUrl = new URL(url);
-            fullRedirectUrl = new URL(newLocation, baseUrl.origin).toString();
-          }
-
-          const newDomain = getDomain(fullRedirectUrl);
-          const needsTrailingSlash = hasTrailingSlash(url);
-          let finalUrlForUpdate = newDomain;
-          if (needsTrailingSlash) {
-            finalUrlForUpdate += '/';
-          }
-
-          console.log(
-            `Will update to: ${finalUrlForUpdate} (preserved trailing slash: ${needsTrailingSlash})`
-          );
-          return finalUrlForUpdate;
-        }
-      }
-
-      console.log(`⚠️ ${url} returned status ${response.status}`);
-    } catch (getError) {
-      if (getError.response) {
-        console.log(`⚠️ ${url} returned status ${getError.response.status}`);
-      } else if (getError.code === 'ECONNABORTED') {
-        console.log(`⌛ ${url} request timed out`);
-      } else if (getError.code === 'ENOTFOUND') {
-        console.log(`❌ ${url} domain not found`);
-      } else {
-        console.log(`❌ Error checking ${url}: ${getError.message}`);
-      }
+    if (error.response) {
+      console.log(`⚠️ ${url} returned status ${error.response.status}`);
+    } else if (error.code === 'ECONNABORTED') {
+      console.log(`⌛ ${url} request timed out`);
+    } else if (error.code === 'ENOTFOUND') {
+      console.log(`❌ ${url} domain not found`);
+    } else {
+      console.log(`❌ Error checking ${url}: ${error.message}`);
     }
   }
 
