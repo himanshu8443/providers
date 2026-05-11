@@ -27,20 +27,26 @@ jobs:
 
       - name: Run URL checker
         id: url_checker
+        shell: bash
         run: |
-          # Run the URL checker and save output
-          node .github/scripts/url-checker.js > checker_output.log 2>&1
+          set -o pipefail
+          # Run the URL checker and show output in the job logs while also saving it
+          node .github/scripts/url-checker.js 2>&1 | tee checker_output.log
           
           # Check if there are updated providers
           if grep -q "### UPDATED_PROVIDERS_START ###" checker_output.log; then
-            echo "CHANGES_DETECTED=true" >> $GITHUB_ENV
+            echo "CHANGES_DETECTED=true" >> "$GITHUB_ENV"
             
             # Extract only the updated provider lines between the markers
-            sed -n '/### UPDATED_PROVIDERS_START ###/,/### UPDATED_PROVIDERS_END ###/p' checker_output.log | 
+            sed -n '/### UPDATED_PROVIDERS_START ###/,/### UPDATED_PROVIDERS_END ###/p' checker_output.log | \
               grep -v "###" > updated_providers.txt
           else
-            echo "CHANGES_DETECTED=false" >> $GITHUB_ENV
+            echo "CHANGES_DETECTED=false" >> "$GITHUB_ENV"
           fi
+          
+          echo "--- checker_output.log ---"
+          cat checker_output.log
+          echo "--- end checker_output.log ---"
       
       - name: Commit changes if any
         run: |
