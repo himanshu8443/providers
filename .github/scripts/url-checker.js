@@ -51,6 +51,14 @@ function getFinalUrl(response, originalUrl) {
   );
 }
 
+function normalizeOrigin(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
 async function requestUrl(method, url) {
   return axios({
     method,
@@ -71,30 +79,27 @@ function logVerboseResult(url, response, finalUrl) {
   );
 }
 
-// Check URL and return new URL if domain redirected
+function shouldUpdateFromFinalUrl(originalUrl, finalUrl) {
+  const originalDomain = getDomain(originalUrl);
+  const finalDomain = getDomain(finalUrl);
+  return finalDomain && finalDomain !== originalDomain;
+}
+
+// Check URL and return new URL if domain redirected or resolved elsewhere
 async function checkUrl(url) {
   try {
     const response = await requestUrl('get', url);
     const finalUrl = getFinalUrl(response, url);
     logVerboseResult(url, response, finalUrl);
 
+    if (shouldUpdateFromFinalUrl(url, finalUrl)) {
+      const updatedUrl = normalizeOrigin(finalUrl) + (hasTrailingSlash(url) ? '/' : '');
+      console.log(`🔄 ${url} resolved to ${finalUrl}`);
+      console.log(`Will update to: ${updatedUrl} (preserved trailing slash: ${hasTrailingSlash(url)})`);
+      return updatedUrl;
+    }
+
     if (response.status === 200) {
-      const originalDomain = getDomain(url);
-      const finalDomain = getDomain(finalUrl);
-
-      if (finalDomain !== originalDomain) {
-        console.log(`🔄 ${url} resolved to ${finalUrl}`);
-        const needsTrailingSlash = hasTrailingSlash(url);
-        let updatedUrl = finalDomain;
-        if (needsTrailingSlash) {
-          updatedUrl += '/';
-        }
-        console.log(
-          `Will update to: ${updatedUrl} (preserved trailing slash: ${needsTrailingSlash})`
-        );
-        return updatedUrl;
-      }
-
       console.log(`✅ ${url} is valid (200 OK)`);
       return null;
     }
@@ -108,18 +113,16 @@ async function checkUrl(url) {
           fullRedirectUrl = new URL(newLocation, baseUrl.origin).toString();
         }
 
-        console.log(`🔄 ${url} redirects to ${fullRedirectUrl}`);
-        const newDomain = getDomain(fullRedirectUrl);
-        const needsTrailingSlash = hasTrailingSlash(url);
-        let finalUrlForUpdate = newDomain;
-        if (needsTrailingSlash) {
-          finalUrlForUpdate += '/';
+        if (shouldUpdateFromFinalUrl(url, fullRedirectUrl)) {
+          const newDomain = normalizeOrigin(fullRedirectUrl);
+          const needsTrailingSlash = hasTrailingSlash(url);
+          const finalUrlForUpdate = newDomain + (needsTrailingSlash ? '/' : '');
+          console.log(`🔄 ${url} redirects to ${fullRedirectUrl}`);
+          console.log(
+            `Will update to: ${finalUrlForUpdate} (preserved trailing slash: ${needsTrailingSlash})`
+          );
+          return finalUrlForUpdate;
         }
-
-        console.log(
-          `Will update to: ${finalUrlForUpdate} (preserved trailing slash: ${needsTrailingSlash})`
-        );
-        return finalUrlForUpdate;
       }
     }
 
@@ -128,6 +131,19 @@ async function checkUrl(url) {
     if (error.response) {
       const finalUrl = getFinalUrl(error.response, url);
       logVerboseResult(url, error.response, finalUrl);
+
+      // If the request resolves to a different origin even with a non-2xx status,
+      // use that as an update signal. This keeps existing behavior intact while
+      // allowing sites that block HEAD/GET with 403 but still resolve elsewhere.
+      if (shouldUpdateFromFinalUrl(url, finalUrl)) {
+        const updatedUrl = normalizeOrigin(finalUrl) + (hasTrailingSlash(url) ? '/' : '');
+        console.log(`🔄 ${url} resolved to ${finalUrl}`);
+        console.log(
+          `Will update to: ${updatedUrl} (preserved trailing slash: ${hasTrailingSlash(url)})`
+        );
+        return updatedUrl;
+      }
+
       console.log(`⚠️ ${url} returned status ${error.response.status}`);
     } else if (error.code === 'ECONNABORTED') {
       console.log(`⌛ ${url} request timed out`);
