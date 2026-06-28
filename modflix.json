@@ -186,5 +186,9 @@
   "1cinevood": {
     "name": "cinewood",
     "url": "https://one.1cinevood.live"
+  },
+  "uniquestream":{
+    "name":"uniquestream",
+    "url":"https://anime.uniquestream.net"
   }
 }
